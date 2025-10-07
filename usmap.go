@@ -20,6 +20,8 @@ import (
 const UsmapMagic uint16 = 0x30C4
 
 type Usmap struct {
+	CompressionMethod ECompressionMethod
+
 	Names   []string
 	Enums   []*UsmapEnum
 	Schemas []*UsmapSchema
@@ -33,7 +35,7 @@ func (ump *Usmap) parseInternal(longFNames bool, largeEnums bool) error {
 	ump.Names = make([]string, size)
 	for i := 0; i < int(size); i++ {
 		var nameLength int
-    	if longFNames {
+		if longFNames {
 			length, _ := ump.reader.ReadUint16()
 			nameLength = int(length)
 		} else {
@@ -52,7 +54,7 @@ func (ump *Usmap) parseInternal(longFNames bool, largeEnums bool) error {
 		enumName := ump.Names[idx]
 
 		var enumNamesSize int
-    	if largeEnums {
+		if largeEnums {
 			length, _ := ump.reader.ReadUint16()
 			enumNamesSize = int(length)
 		} else {
@@ -67,7 +69,7 @@ func (ump *Usmap) parseInternal(longFNames bool, largeEnums bool) error {
 		}
 
 		ump.Enums[i] = &UsmapEnum{
-			Name: enumName,
+			Name:  enumName,
 			Names: enumNames,
 		}
 	}
@@ -94,20 +96,20 @@ func (ump *Usmap) parseInternal(longFNames bool, largeEnums bool) error {
 			schemaIdx, _ := ump.reader.ReadUint16()
 			arraySize, _ := ump.reader.ReadByte()
 			nameIdx, _ := ump.reader.ReadUint32()
-			
+
 			prop := Deserialize(ump.reader, ump.Names)
 			props[p] = &UsmapProperty{
-				Name: ump.Names[nameIdx],
-				Data: prop,
+				Name:      ump.Names[nameIdx],
+				Data:      prop,
 				SchemaIdx: schemaIdx,
 				ArraySize: arraySize,
 			}
 		}
 
 		ump.Schemas[i] = &UsmapSchema{
-			Name: schemaName,
-			SuperType: schemaSuperType,
-			PropCount: propCount,
+			Name:       schemaName,
+			SuperType:  schemaSuperType,
+			PropCount:  propCount,
 			Properties: props,
 		}
 	}
@@ -118,7 +120,7 @@ func (ump *Usmap) parseInternal(longFNames bool, largeEnums bool) error {
 // Returns a summary of the Usmap contents as a formatted string.
 func (ump *Usmap) ToString() string {
 	return fmt.Sprintf(
-		"Names: %d | Enums: %d | Schemas: %d", 
+		"Names: %d | Enums: %d | Schemas: %d",
 		len(ump.Names), len(ump.Enums), len(ump.Schemas),
 	)
 }
@@ -154,7 +156,7 @@ func ParseFromBytes(buffer []byte, oodleInstance *Oodle) (*Usmap, error) {
 		return nil, fmt.Errorf("unsupported .usmap file: %d", int(version))
 	}
 
-	bHasVersioning, _ := reader.ReadInt32() 
+	bHasVersioning, _ := reader.ReadInt32()
 	if version > EUsmapVersionPackageVersioning && bHasVersioning != 0 {
 		reader.Position += 4 * 2 // FPackageFileVersion
 
@@ -163,16 +165,16 @@ func ParseFromBytes(buffer []byte, oodleInstance *Oodle) (*Usmap, error) {
 	}
 
 	compressionMethodByte, _ := reader.ReadByte()
-	compressionMethod := ECompressionMethod(compressionMethodByte)
+	usmap.CompressionMethod = ECompressionMethod(compressionMethodByte)
 
 	compressedSize, _ := reader.ReadInt32()
 	uncompressedSize, _ := reader.ReadInt32()
 
-	if compressionMethod > ECompressionMethodMax {
-		return nil, fmt.Errorf("unsupported compression method: %d", int(compressionMethod))
+	if usmap.CompressionMethod > ECompressionMethodMax {
+		return nil, fmt.Errorf("unsupported compression method: %s", usmap.CompressionMethod.ToString())
 	}
 
-	if len(reader.Buffer) - reader.Position < int(compressedSize) {
+	if len(reader.Buffer)-reader.Position < int(compressedSize) {
 		return nil, fmt.Errorf("there is not enough data in the .usmap file")
 	}
 
@@ -181,29 +183,29 @@ func ParseFromBytes(buffer []byte, oodleInstance *Oodle) (*Usmap, error) {
 	var uncompressedReader *UsmapReader
 	decompressedData := make([]byte, uncompressedSize)
 
-    switch compressionMethod {
-    case ECompressionMethodNone:
+	switch usmap.CompressionMethod {
+	case ECompressionMethodNone:
 		uncompressedReader = reader
 
-    case ECompressionMethodOodle:
-        if usmap.oodleDec == nil {
-            return nil, fmt.Errorf("oodle compression used but no oodle instance provided")
-        }
+	case ECompressionMethodOodle:
+		if usmap.oodleDec == nil {
+			return nil, fmt.Errorf("oodle compression used but no oodle instance provided")
+		}
 
-        result, err := usmap.oodleDec.Decompress(compressedData, decompressedData, int(uncompressedSize))
-        if err != nil {
-            return nil, err
-        }
-        if result != int(uncompressedSize) {
-            return nil, fmt.Errorf("invalid .usmap decompress result: %d/%d", result, uncompressedSize)
-        }
+		result, err := usmap.oodleDec.Decompress(compressedData, decompressedData, int(uncompressedSize))
+		if err != nil {
+			return nil, err
+		}
+		if result != int(uncompressedSize) {
+			return nil, fmt.Errorf("invalid .usmap decompress result: %d/%d", result, uncompressedSize)
+		}
 
 		uncompressedReader, err = CreateReader(decompressedData)
 		if err != nil {
 			return nil, err
 		}
-        
-    case ECompressionMethodBrotli:
+
+	case ECompressionMethodBrotli:
 		brotliDec := brotli.NewReader(bytes.NewReader(compressedData))
 		n, err := io.ReadFull(brotliDec, decompressedData)
 		if err != nil {
@@ -218,13 +220,13 @@ func ParseFromBytes(buffer []byte, oodleInstance *Oodle) (*Usmap, error) {
 			return nil, err
 		}
 
-    case ECompressionMethodZStandard:
+	case ECompressionMethodZStandard:
 		zstdDec, err := zstd.NewReader(nil)
 		if err != nil {
 			return nil, err
 		}
 		defer zstdDec.Close()
-		
+
 		decompressed, err := zstdDec.DecodeAll(compressedData, make([]byte, 0, uncompressedSize))
 		if err != nil {
 			return nil, err
@@ -237,7 +239,7 @@ func ParseFromBytes(buffer []byte, oodleInstance *Oodle) (*Usmap, error) {
 		if err != nil {
 			return nil, err
 		}
-    }
+	}
 
 	usmap.reader = uncompressedReader
 	usmap.parseInternal(version >= EUsmapVersionLongFName, version >= EUsmapVersionLargeEnums)
