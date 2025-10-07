@@ -2,11 +2,8 @@
 
 A fast and reliable `.usmap` file parser for Go, supporting Oodle, Brotli, and ZStandard compression methods.
 
+[![Release](https://img.shields.io/github/release/djlorenzouasset/Athena)]()
 [![GoMod](https://img.shields.io/github/go-mod/go-version/djlorenzouasset/GoUsmap?style=flat)](https://pkg.go.dev/github.com/djlorenzouasset/GoUsmap)
-[![RepoSize](https://img.shields.io/github/repo-size/djlorenzouasset/GoUsmap?style=flat
-)](https://github.com/djlorenzouasset/GoUsmap)
-![Licence](https://img.shields.io/github/license/djlorenzouasset/GoUsmap?style=flat
-)
 
 ## Features
 
