@@ -17,7 +17,7 @@ go get github.com/djlorenzouasset/GoUsmap
 ```
 
 **Requirements:**
-- Go 1.18 or higher
+- Go 1.24 or higher
 - Oodle DLL (only required for Oodle-compressed mappings)
 
 ## Usage
